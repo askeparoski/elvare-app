@@ -484,6 +484,11 @@ function App() {
         if (prevCenter) {
           setCenterScores({ ...centerScores, [prevCenter]: centerScores[prevCenter] - 1 });
         }
+        setShownCenterQuestions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(centerIdx - 1);
+          return newSet;
+        });
       }
     } else if (step === "type") {
       if (typeTiebreaker) {
@@ -496,6 +501,11 @@ function App() {
         if (prevType) {
           setTypeScores({ ...typeScores, [prevType]: typeScores[prevType] - 1 });
         }
+        setShownTypeQuestions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(typeIdx - 1);
+          return newSet;
+        });
       } else {
         setStep("center");
       }
@@ -504,7 +514,12 @@ function App() {
       setStep("type");
     } else if (step === "instinct") {
       if (instinctIdx > 0) {
-      handleInstinctBack();
+        handleInstinctBack();
+        setShownInstinctQuestions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(instinctIdx - 1);
+          return newSet;
+        });
       } else {
         setStep("wing");
       }
