@@ -238,9 +238,9 @@ function App() {
     if (triad.includes("Gut")) triad = "Gut";
     if (triad.includes("Heart")) triad = "Heart";
     if (triad.includes("Head")) triad = "Head";
+    // Only include non-tiebreaker questions initially
     const triadQuestions = typeResolverQuestions[triad].filter(q => !q.tiebreaker);
-    const triadTiebreaker = typeResolverQuestions[triad].find(q => q.tiebreaker);
-    setTypeOrder(shuffle(triadQuestions).concat(triadTiebreaker ? [triadTiebreaker] : []));
+    setTypeOrder(shuffle(triadQuestions));
     setTypeScores({});
     setTypeAnswers([]);
     setTypeTiebreaker(false);
@@ -261,6 +261,8 @@ function App() {
     const values = Object.values(newScores);
     const max = Math.max(...values);
     const maxType = Object.keys(newScores).find(k => newScores[k] === max);
+    
+    // If we've reached a score of 3 for any type, proceed directly to wing selection
     if (max === 3) {
       await updateDoc(doc(db, "users", userId), {
         'answers.typeResolver': [...typeAnswers, { 
@@ -274,16 +276,18 @@ function App() {
       setStep("wing");
       return;
     }
-    if (typeIdx + 1 < typeOrder.length - 1) {
-      setTypeIdx(typeIdx + 1);
-    } else {
+
+    // If we've answered all regular questions, check if we need a tiebreaker
+    if (typeIdx + 1 >= typeOrder.length) {
       const types = Object.keys(newScores);
       const top = types.filter(t => newScores[t] === Math.max(...values));
+      
       if (top.length === 1) {
+        // No tie, proceed to wing selection
         await updateDoc(doc(db, "users", userId), {
           'answers.typeResolver': [...typeAnswers, { 
             question: currentTypeQuestion.prompt,
-            answer: top[0],
+            answer: type,
             timestamp: new Date()
           }]
         });
@@ -291,10 +295,18 @@ function App() {
         startWingSelector(top[0]);
         setStep("wing");
       } else {
-        setTypeTiebreaker(true);
-        setTypeIdx(typeOrder.length - 1);
+        // We have a tie, add the tiebreaker question
+        const triad = centerResult.includes("Gut") ? "Gut" : 
+                     centerResult.includes("Heart") ? "Heart" : "Head";
+        const tiebreaker = typeResolverQuestions[triad].find(q => q.tiebreaker);
+        if (tiebreaker) {
+          setTypeOrder(prev => [...prev, tiebreaker]);
+          setTypeTiebreaker(true);
+        }
       }
     }
+    
+    setTypeIdx(typeIdx + 1);
     setTypeScores(newScores);
   };
 
