@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAI-8CU6-9EGqu9X4TDQ9rYowrIPOOJqhw",
-  authDomain: "elvare-a654b.firebaseapp.com",
-  projectId: "elvare-a654b",
-  storageBucket: "elvare-a654b.appspot.com",
-  messagingSenderId: "1015704662766",
-  appId: "1:1015704662766:web:b1edf6e7ae1efce036f9ff"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
