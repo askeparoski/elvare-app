@@ -55,9 +55,6 @@ function App() {
   const [centerOrder] = useState(() => shuffle(centerFinderQuestions));
   const [centerScores, setCenterScores] = useState({ Gut: 0, Heart: 0, Head: 0 });
   const [centerAnswers, setCenterAnswers] = useState([]);
-  const [tiebreakerIdx, setTiebreakerIdx] = useState(0);
-  const [inTiebreaker, setInTiebreaker] = useState(false);
-  const [tiebreakerAnswers, setTiebreakerAnswers] = useState([]);
   const [centerResult, setCenterResult] = useState(null);
   const [shownCenterQuestions, setShownCenterQuestions] = useState(new Set());
 
@@ -89,7 +86,7 @@ function App() {
   // --- Progress Bar Calculation ---
   const calculateProgress = () => {
     // Calculate total questions across all steps
-    const totalCenterQuestions = centerOrder.length + (inTiebreaker ? tiebreakers.length : 0);
+    const totalCenterQuestions = centerOrder.length;
     const totalTypeQuestions = typeOrder.length + (typeTiebreaker ? 1 : 0);
     const totalWingQuestions = 1; // Always 1 question
     const totalInstinctQuestions = instinctOrder.length;
@@ -102,7 +99,7 @@ function App() {
 
     // Center questions
     if (step === "center") {
-      answeredQuestions = inTiebreaker ? centerOrder.length + tiebreakerIdx : centerIdx;
+      answeredQuestions = centerIdx;
     }
     // Type questions
     else if (step === "type") {
@@ -139,18 +136,13 @@ function App() {
 
   const currentCenterQuestion = centerOrder[getNextAvailableQuestion(centerOrder, shownCenterQuestions, centerIdx)];
   const shuffledCenterOptions = useMemo(
-    () => shuffle(currentCenterQuestion.options),
-    [centerIdx, centerOrder]
-  );
-  const currentTiebreakerQuestion = tiebreakers[tiebreakerIdx];
-  const shuffledTiebreakerOptions = useMemo(
-    () => shuffle(currentTiebreakerQuestion.options),
-    [tiebreakerIdx]
+    () => shuffle(currentCenterQuestion?.options || []),
+    [centerIdx, centerOrder, currentCenterQuestion]
   );
   const currentTypeQuestion = typeOrder[getNextAvailableQuestion(typeOrder, shownTypeQuestions, typeIdx)];
   const shuffledTypeOptions = useMemo(
     () => currentTypeQuestion ? shuffle(currentTypeQuestion.options) : [],
-    [typeIdx, typeOrder]
+    [typeIdx, typeOrder, currentTypeQuestion]
   );
   const shuffledWingOptions = useMemo(
     () => shuffle(wingOptions),
@@ -158,8 +150,8 @@ function App() {
   );
   const currentInstinctQuestion = instinctOrder[getNextAvailableQuestion(instinctOrder, shownInstinctQuestions, instinctIdx)];
   const shuffledInstinctOptions = useMemo(
-    () => shuffle(currentInstinctQuestion.options),
-    [instinctIdx, instinctOrder]
+    () => shuffle(currentInstinctQuestion?.options || []),
+    [instinctIdx, instinctOrder, currentInstinctQuestion]
   );
 
   // --- Handlers ---
@@ -209,12 +201,23 @@ function App() {
     }]);
     setShownCenterQuestions(prev => new Set([...prev, centerIdx]));
     
-    const values = Object.values(newScores);
-    const max = Math.max(...values);
-    const maxCenter = Object.keys(newScores).find(k => newScores[k] === max);
-    const sorted = Object.entries(newScores).sort((a, b) => b[1] - a[1]);
-    const lead = sorted[0][1] - sorted[1][1];
-    if (max >= 3 && lead >= 2) {
+    if (centerIdx + 1 < centerOrder.length) {
+      setCenterIdx(centerIdx + 1);
+    } else {
+      // After all 9 questions, find the center with highest score
+      const values = Object.values(newScores);
+      const centers = Object.keys(newScores);
+      const maxScore = Math.max(...values);
+      const topCenters = centers.filter(c => newScores[c] === maxScore);
+      
+      let result;
+      if (topCenters.length === 1) {
+        result = topCenters[0];
+      } else {
+        // If tied, use the first center (you can modify this logic if needed)
+        result = topCenters[0];
+      }
+
       await updateDoc(doc(db, "users", userId), {
         'answers.centerFinder': [...centerAnswers, { 
           question: currentCenterQuestion.prompt,
@@ -222,59 +225,12 @@ function App() {
           timestamp: new Date()
         }]
       });
-      setCenterResult(maxCenter);
-      startTypeResolver(maxCenter);
-      setStep("type");
-      return;
-    }
-    if (centerIdx + 1 < centerOrder.length) {
-      setCenterIdx(centerIdx + 1);
-    } else {
-      const centers = Object.keys(newScores);
-      const top = centers.filter(c => newScores[c] === Math.max(...values));
-      if (top.length === 1) {
-        await updateDoc(doc(db, "users", userId), {
-          'answers.centerFinder': [...centerAnswers, { 
-            question: currentCenterQuestion.prompt,
-            answer: top[0],
-            timestamp: new Date()
-          }]
-        });
-        setCenterResult(top[0]);
-        startTypeResolver(top[0]);
-        setStep("type");
-      } else {
-        setInTiebreaker(true);
-        setTiebreakerIdx(0);
-      }
-    }
-    setCenterScores(newScores);
-  };
-
-  const handleTiebreakerAnswer = async (center) => {
-    const newAnswers = [...tiebreakerAnswers, { q: currentTiebreakerQuestion.prompt, center }];
-    setTiebreakerAnswers(newAnswers);
-    const newScores = { ...centerScores, [center]: centerScores[center] + 1 };
-    setCenterScores(newScores);
-    if (tiebreakerIdx + 1 < tiebreakers.length) {
-      setTiebreakerIdx(tiebreakerIdx + 1);
-    } else {
-      const values = Object.values(newScores);
-      const centers = Object.keys(newScores);
-      const top = centers.filter(c => newScores[c] === Math.max(...values));
-      let result = null;
-      if (top.length === 1) {
-        result = top[0];
-      } else {
-        result = top.join(" or ");
-      }
-      await updateDoc(doc(db, "users", userId), {
-        'answers.centerFinder': [...centerAnswers, ...newAnswers]
-      });
+      
       setCenterResult(result);
       startTypeResolver(result);
       setStep("type");
     }
+    setCenterScores(newScores);
   };
 
   function startTypeResolver(center) {
@@ -340,32 +296,6 @@ function App() {
       }
     }
     setTypeScores(newScores);
-  };
-
-  const handleTypeTiebreakerAnswer = async (type) => {
-    const newScores = { ...typeScores, [type]: (typeScores[type] || 0) + 1 };
-    const newAnswers = [...typeAnswers, { 
-      question: currentTypeQuestion.prompt,
-      answer: type,
-      timestamp: new Date()
-    }];
-    setTypeScores(newScores);
-    setTypeAnswers(newAnswers);
-    const values = Object.values(newScores);
-    const types = Object.keys(newScores);
-    const top = types.filter(t => newScores[t] === Math.max(...values));
-    let result = null;
-    if (top.length === 1) {
-      result = top[0];
-    } else {
-      result = top.join(" or ");
-    }
-    await updateDoc(doc(db, "users", userId), {
-      'answers.typeResolver': newAnswers
-    });
-    setTypeResult(result);
-    startWingSelector(result);
-    setStep("wing");
   };
 
   function startWingSelector(type) {
@@ -474,16 +404,14 @@ function App() {
 
   const handleBack = () => {
     if (step === "center") {
-      if (inTiebreaker && tiebreakerIdx > 0) {
-        setTiebreakerIdx(tiebreakerIdx - 1);
-        setTiebreakerAnswers(tiebreakerAnswers.slice(0, -1));
-      } else if (!inTiebreaker && centerIdx > 0) {
+      if (centerIdx > 0) {
         setCenterIdx(centerIdx - 1);
         setCenterAnswers(centerAnswers.slice(0, -1));
         const prevCenter = centerAnswers[centerAnswers.length - 1]?.answer;
         if (prevCenter) {
           setCenterScores({ ...centerScores, [prevCenter]: centerScores[prevCenter] - 1 });
         }
+        // Remove the last shown question from the set
         setShownCenterQuestions(prev => {
           const newSet = new Set(prev);
           newSet.delete(centerIdx - 1);
@@ -621,83 +549,41 @@ function App() {
       {step === "center" && (
         <div className="centered-container">
           <div className="form-box" style={{ maxWidth: '600px', margin: '0 auto' }}>
-            {!inTiebreaker ? (
-              <>
-                <h3 style={{ color: 'white', fontSize: '16px', marginBottom: '8px' }}>{currentCenterQuestion.prompt}</h3>
-                {shuffledCenterOptions.map((opt, i) => (
-                  <button
-                    key={i}
-                    style={{ 
-                      display: 'block', 
-                      width: '100%', 
-                      margin: '6px 0',
-                      padding: '8px',
-                      background: '#333',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onClick={() => handleCenterAnswer(opt.center)}
-                  >
-                    {opt.text}
-                  </button>
-                ))}
-                <button
-                  onClick={handleBack}
-                  disabled={centerIdx === 0}
-                  style={{ 
-                    marginTop: '10px', 
-                    opacity: centerIdx === 0 ? 0.5 : 1,
-                    fontSize: '12px',
-                    padding: '6px 12px'
-                  }}
-                >
-                  Back
-                </button>
-              </>
-            ) : (
-              <>
-                <h3 style={{ color: 'white', fontSize: '16px', marginBottom: '8px' }}>{currentTiebreakerQuestion.prompt}</h3>
-                {shuffledTiebreakerOptions.map((opt, i) => (
-                  <button
-                    key={i}
-                    style={{ 
-                      display: 'block', 
-                      width: '100%', 
-                      margin: '6px 0',
-                      padding: '8px',
-                      background: '#333',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onClick={() => handleTiebreakerAnswer(opt.center)}
-                  >
-                    {opt.text}
-                  </button>
-                ))}
-                <button
-                  onClick={handleBack}
-                  disabled={tiebreakerIdx === 0}
-                  style={{ 
-                    marginTop: '10px', 
-                    opacity: tiebreakerIdx === 0 ? 0.5 : 1,
-                    fontSize: '12px',
-                    padding: '6px 12px'
-                  }}
-                >
-                  Back
-                </button>
-              </>
-            )}
+            <h3 style={{ color: 'white', fontSize: '16px', marginBottom: '8px' }}>{currentCenterQuestion.prompt}</h3>
+            {shuffledCenterOptions.map((opt, i) => (
+              <button
+                key={i}
+                style={{ 
+                  display: 'block', 
+                  width: '100%', 
+                  margin: '6px 0',
+                  padding: '8px',
+                  background: '#333',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => handleCenterAnswer(opt.center)}
+              >
+                {opt.text}
+              </button>
+            ))}
+            <button
+              onClick={handleBack}
+              disabled={centerIdx === 0}
+              style={{ 
+                marginTop: '10px', 
+                opacity: centerIdx === 0 ? 0.5 : 1,
+                fontSize: '12px',
+                padding: '6px 12px'
+              }}
+            >
+              Back
+            </button>
           </div>
         </div>
       )}
