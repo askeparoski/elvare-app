@@ -85,44 +85,42 @@ function App() {
 
   // --- Progress Bar Calculation ---
   const calculateProgress = () => {
-    // Calculate total questions across all steps
-    const totalCenterQuestions = centerOrder.length;
-    const totalTypeQuestions = typeOrder.length + (typeTiebreaker ? 1 : 0);
-    const totalWingQuestions = 1; // Always 1 question
-    const totalInstinctQuestions = instinctOrder.length;
-    const totalHealthQuestions = 1; // Always 1 question
+    // Define the total number of questions in each section
+    const centerQuestions = 9;  // Fixed number of center questions
+    const typeQuestions = 5;    // Fixed number of type questions
+    const wingQuestions = 1;    // Single wing question
+    const instinctQuestions = 9; // Fixed number of instinct questions
+    const healthQuestions = 1;  // Single health question
 
-    const totalQuestions = totalCenterQuestions + totalTypeQuestions + totalWingQuestions + totalInstinctQuestions + totalHealthQuestions;
+    const totalQuestions = centerQuestions + typeQuestions + wingQuestions + instinctQuestions + healthQuestions;
 
-    // Calculate answered questions based on current step
-    let answeredQuestions = 0;
+    // Calculate progress based on current step and question index
+    let progress = 0;
 
-    // Center questions
-    if (step === "center") {
-      answeredQuestions = centerIdx;
-    }
-    // Type questions
-    else if (step === "type") {
-      answeredQuestions = totalCenterQuestions + (typeTiebreaker ? typeIdx + 1 : typeIdx);
-    }
-    // Wing questions
-    else if (step === "wing") {
-      answeredQuestions = totalCenterQuestions + totalTypeQuestions + (wingResult ? 1 : 0);
-    }
-    // Instinct questions
-    else if (step === "instinct") {
-      answeredQuestions = totalCenterQuestions + totalTypeQuestions + totalWingQuestions + instinctIdx;
-    }
-    // Health questions
-    else if (step === "health") {
-      answeredQuestions = totalCenterQuestions + totalTypeQuestions + totalWingQuestions + totalInstinctQuestions + (healthLevel ? 1 : 0);
-    }
-    // Results page
-    else if (step === "results") {
-      answeredQuestions = totalQuestions;
+    switch (step) {
+      case "center":
+        progress = (centerIdx / totalQuestions) * 100;
+        break;
+      case "type":
+        progress = ((centerQuestions + typeIdx) / totalQuestions) * 100;
+        break;
+      case "wing":
+        progress = ((centerQuestions + typeQuestions) / totalQuestions) * 100;
+        break;
+      case "instinct":
+        progress = ((centerQuestions + typeQuestions + wingQuestions + instinctIdx) / totalQuestions) * 100;
+        break;
+      case "health":
+        progress = ((centerQuestions + typeQuestions + wingQuestions + instinctQuestions) / totalQuestions) * 100;
+        break;
+      case "results":
+        progress = 100;
+        break;
+      default:
+        progress = 0;
     }
 
-    return (answeredQuestions / totalQuestions) * 100;
+    return Math.min(100, progress);
   };
 
   // --- Current Questions ---
