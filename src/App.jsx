@@ -262,16 +262,24 @@ function App() {
     
     // If we've reached a score of 3 for any type, proceed directly to wing selection
     if (max === 3) {
-      await updateDoc(doc(db, "users", userId), {
-        'answers.typeResolver': [...typeAnswers, { 
-          question: currentTypeQuestion.prompt,
-          answer: type,
-          timestamp: new Date()
-        }]
-      });
-      setTypeResult(maxType);
-      startWingSelector(maxType);
-      setStep("wing");
+      try {
+        await updateDoc(doc(db, "users", userId), {
+          'answers.typeResolver': [...typeAnswers, { 
+            question: currentTypeQuestion.prompt,
+            answer: type,
+            timestamp: new Date()
+          }]
+        });
+        setTypeResult(maxType);
+        startWingSelector(maxType);
+        setStep("wing");
+      } catch (error) {
+        console.error('Error updating type answers:', error);
+        // Continue with the update even if Firestore update fails
+        setTypeResult(maxType);
+        startWingSelector(maxType);
+        setStep("wing");
+      }
       return;
     }
 
@@ -282,13 +290,17 @@ function App() {
       
       if (top.length === 1) {
         // No tie, proceed to wing selection
-        await updateDoc(doc(db, "users", userId), {
-          'answers.typeResolver': [...typeAnswers, { 
-            question: currentTypeQuestion.prompt,
-            answer: type,
-            timestamp: new Date()
-          }]
-        });
+        try {
+          await updateDoc(doc(db, "users", userId), {
+            'answers.typeResolver': [...typeAnswers, { 
+              question: currentTypeQuestion.prompt,
+              answer: type,
+              timestamp: new Date()
+            }]
+          });
+        } catch (error) {
+          console.error('Error updating type answers:', error);
+        }
         setTypeResult(top[0]);
         startWingSelector(top[0]);
         setStep("wing");
@@ -300,11 +312,17 @@ function App() {
         if (tiebreaker) {
           setTypeOrder(prev => [...prev, tiebreaker]);
           setTypeTiebreaker(true);
+          setTypeIdx(typeIdx + 1);
+        } else {
+          // If no tiebreaker found, proceed with the first type
+          setTypeResult(top[0]);
+          startWingSelector(top[0]);
+          setStep("wing");
         }
       }
+    } else {
+      setTypeIdx(typeIdx + 1);
     }
-    
-    setTypeIdx(typeIdx + 1);
     setTypeScores(newScores);
   };
 
