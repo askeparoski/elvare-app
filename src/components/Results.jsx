@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { db } from '../firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-function Results({ type, wing, center, instinctStack, healthLevel, userId }) {
+// Rename the current component to DetailedResults
+function DetailedResults({ type, wing, center, instinctStack, healthLevel, userId }) {
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
@@ -284,4 +285,93 @@ function Results({ type, wing, center, instinctStack, healthLevel, userId }) {
   );
 }
 
-export default Results; 
+// New simple Results component
+function Results({ type, wing, center, instinctStack, healthLevel, userId }) {
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedback.trim() || !userId) return;
+    
+    setIsSubmitting(true);
+    try {
+      const feedbackData = {
+        text: feedback.trim(),
+        createdAt: new Date()
+      };
+
+      await updateDoc(doc(db, "users", userId), {
+        'feedback': arrayUnion(feedbackData)
+      });
+
+      setSubmitStatus('success');
+      setFeedback('');
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      setSubmitStatus('error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="results-container" style={{ textAlign: 'center', padding: '40px 20px' }}>
+      <h2 style={{ color: 'white', marginBottom: '30px' }}>Thank You!</h2>
+      <p style={{ 
+        color: 'white', 
+        fontSize: '18px', 
+        lineHeight: '1.6',
+        marginBottom: '40px',
+        maxWidth: '600px',
+        margin: '0 auto 40px'
+      }}>
+        Thank you for completing the assessment. Alex will be in touch with you shortly to discuss your results.
+      </p>
+
+      <div className="feedback-section" style={{ maxWidth: '500px', margin: '0 auto' }}>
+        <h3 style={{ color: 'white', marginBottom: '20px' }}>Share Your Experience</h3>
+        <textarea
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="How was your experience with this assessment?"
+          rows={4}
+          style={{
+            width: '100%',
+            padding: '12px',
+            marginBottom: '15px',
+            borderRadius: '6px',
+            border: '1px solid #333',
+            background: '#222',
+            color: 'white',
+            fontSize: '14px'
+          }}
+        />
+        <button 
+          onClick={handleFeedbackSubmit}
+          disabled={isSubmitting || !feedback.trim()}
+          style={{
+            padding: '12px 24px',
+            background: '#4caf50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            opacity: isSubmitting || !feedback.trim() ? 0.7 : 1
+          }}
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
+        </button>
+        {submitStatus === 'success' && (
+          <p style={{ color: '#4caf50', marginTop: '15px' }}>Thank you for your feedback!</p>
+        )}
+        {submitStatus === 'error' && (
+          <p style={{ color: '#f44336', marginTop: '15px' }}>Error submitting feedback. Please try again.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export { Results, DetailedResults }; 

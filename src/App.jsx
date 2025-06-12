@@ -7,7 +7,7 @@ import { typeResolverQuestions } from "./typeResolverData";
 import { wingSelectorQuestions } from "./wingSelectorData";
 import { instinctStackQuestions } from "./instinctStackData";
 import HealthLevelAssessment from "./components/HealthLevelAssessment";
-import Results from "./components/Results";
+import { Results } from "./components/Results";
 
 function shuffle(array) {
   const arr = array.slice();
